@@ -35,10 +35,28 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=[
+        "*",  # Allow all origins for development
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "https://localhost:3000",
+        "https://localhost:5173",
+        "https://*.deploypad.app",
+        "http://*.deploypad.app"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Content-Type", 
+        "Authorization", 
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers"
+    ],
+    expose_headers=["*"],
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
 
 # Initialize AI agent
@@ -82,6 +100,24 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "cost-analyst-agent"}
+
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle preflight OPTIONS requests for all endpoints"""
+    return {
+        "message": "OK",
+        "allowed_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allowed_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"]
+    }
+
+@app.options("/chat")
+async def chat_options():
+    """Handle preflight OPTIONS requests for the chat endpoint"""
+    return {
+        "message": "OK",
+        "allowed_methods": ["POST"],
+        "allowed_headers": ["Content-Type", "Authorization", "X-Requested-With"]
+    }
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
