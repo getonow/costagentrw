@@ -9,7 +9,11 @@ logger = logging.getLogger(__name__)
 
 class CostAnalystAgent:
     def __init__(self):
-        self.client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
+        try:
+            self.client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
+        except Exception as e:
+            logger.error(f"Error initializing OpenAI client: {e}")
+            self.client = None
     
     def generate_analysis_and_insights(
         self,
@@ -21,6 +25,11 @@ class CostAnalystAgent:
         user_message: str
     ) -> str:
         """Generate comprehensive analysis and insights using OpenAI"""
+        
+        # Check if OpenAI client is available
+        if self.client is None:
+            logger.warning("OpenAI client not available, using fallback analysis")
+            return self._generate_fallback_analysis(part_data, cbs_data, market_indices, part_number)
         
         try:
             # Prepare context for the AI
@@ -82,11 +91,16 @@ class CostAnalystAgent:
         }
         
         # Extract part information
-        if not part_data.empty:
-            supplier_name = part_data.get('suppliername', pd.Series(['Unknown'])).iloc[0]
-            part_name = part_data.get('partname', pd.Series(['Unknown'])).iloc[0]
-            material = part_data.get('material', pd.Series(['Unknown'])).iloc[0]
-            currency = part_data.get('currency', pd.Series(['EUR'])).iloc[0]
+        if not part_data.empty and part_data is not None:
+            supplier_series = part_data.get('suppliername', pd.Series(['Unknown']))
+            part_series = part_data.get('partname', pd.Series(['Unknown']))
+            material_series = part_data.get('material', pd.Series(['Unknown']))
+            currency_series = part_data.get('currency', pd.Series(['EUR']))
+            
+            supplier_name = supplier_series.iloc[0] if supplier_series is not None else 'Unknown'
+            part_name = part_series.iloc[0] if part_series is not None else 'Unknown'
+            material = material_series.iloc[0] if material_series is not None else 'Unknown'
+            currency = currency_series.iloc[0] if currency_series is not None else 'EUR'
             
             context["part_info"] = {
                 "supplier_name": supplier_name,
