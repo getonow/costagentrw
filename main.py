@@ -32,28 +32,18 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Add CORS middleware
+# Add CORS middleware for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",  # Allow all origins for development
-        "http://localhost:3000",
-        "http://localhost:5173", 
-        "https://localhost:3000",
-        "https://localhost:5173",
-        "https://*.deploypad.app",
-        "http://*.deploypad.app"
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for production
+    allow_credentials=False,  # Set to False when using allow_origins=["*"]
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=[
         "Content-Type", 
         "Authorization", 
         "X-Requested-With",
         "Accept",
-        "Origin",
-        "Access-Control-Request-Method",
-        "Access-Control-Request-Headers"
+        "Origin"
     ],
     expose_headers=["*"],
     max_age=86400,  # Cache preflight requests for 24 hours
@@ -119,12 +109,22 @@ async def chat_options():
         "allowed_headers": ["Content-Type", "Authorization", "X-Requested-With"]
     }
 
+@app.get("/test-cors")
+async def test_cors():
+    """Test endpoint to verify CORS is working"""
+    return {
+        "message": "CORS test successful",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "cors_enabled": True
+    }
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
     Main chat endpoint for the COST ANALYST agent.
     Processes user messages and returns comprehensive cost analysis.
     """
+    logger.info(f"Received chat request: {request.message}")
     try:
         market_indices_clean = {"raw_material": 0.0, "electricity": 0.0, "gas": 0.0}
         # Step 1: Extract part number from user message
