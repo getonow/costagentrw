@@ -77,6 +77,7 @@ def safe_float(val):
 @app.get("/")
 async def root():
     """Root endpoint"""
+    logger.info("Root endpoint accessed")
     return {
         "message": "COST ANALYST AI Agent is running",
         "version": "1.0.0",
@@ -89,6 +90,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    logger.info("Health check endpoint accessed")
     return {"status": "healthy", "service": "cost-analyst-agent"}
 
 @app.options("/{full_path:path}")
@@ -112,10 +114,12 @@ async def chat_options():
 @app.get("/test-cors")
 async def test_cors():
     """Test endpoint to verify CORS is working"""
+    logger.info("CORS test endpoint accessed")
     return {
         "message": "CORS test successful",
         "timestamp": "2024-01-15T10:30:00Z",
-        "cors_enabled": True
+        "cors_enabled": True,
+        "status": "working"
     }
 
 @app.post("/chat", response_model=ChatResponse)
