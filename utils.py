@@ -102,8 +102,9 @@ def create_price_trend_chart(part_data: pd.DataFrame, part_number: str) -> Dict[
                 try:
                     date = datetime(int(year), month_names[month], 1)
                     price = part_data[col].iloc[0]
-                    if pd.notna(price) and price > 0:
-                        prices.append(float(price))
+                    if pd.notna(price) and price > 0 and not pd.isinf(price):
+                        clean_price = float(price)
+                        prices.append(clean_price)
                         dates.append(date)
                 except (ValueError, TypeError):
                     continue
@@ -147,10 +148,11 @@ def create_cbs_pie_chart(cbs_data: pd.DataFrame, part_number: str, is_suggested:
     for component in cost_components:
         if component in cbs_data.columns:
             value = cbs_data[component].iloc[0]
-            if pd.notna(value) and value > 0:
+            if pd.notna(value) and value > 0 and not pd.isinf(value):
+                clean_value = float(value)
                 labels.append(component.replace('packaginglogistics', 'Packaging & Logistics').title())
-                values.append(float(value))
-                total += value
+                values.append(clean_value)
+                total += clean_value
     
     # Calculate percentages
     if total > 0:
@@ -184,6 +186,7 @@ def create_market_trend_chart(trend_data: pd.DataFrame, title: str, y_axis_title
     
     # Convert month strings to datetime for proper ordering
     dates = []
+    values = []
     for month_str in trend_data['month']:
         try:
             # Parse month format like 'jul-25'
@@ -200,11 +203,26 @@ def create_market_trend_chart(trend_data: pd.DataFrame, title: str, y_axis_title
         except:
             dates.append(datetime.now())
     
+    # Safely extract and clean values
+    for value in trend_data['monthlyavgeuro']:
+        try:
+            if pd.notna(value) and not pd.isinf(value):
+                clean_value = float(value)
+                values.append(clean_value)
+            else:
+                values.append(0.0)  # Replace NaN/Inf with 0
+        except (ValueError, TypeError):
+            values.append(0.0)
+    
+    # Ensure we have valid data
+    if not values or len(values) != len(dates):
+        return {"error": f"Invalid data for {title}"}
+    
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
         x=dates,
-        y=trend_data['monthlyavgeuro'],
+        y=values,
         mode='lines+markers',
         name=title,
         line=dict(color='#ff7f0e', width=2),
@@ -214,7 +232,7 @@ def create_market_trend_chart(trend_data: pd.DataFrame, title: str, y_axis_title
     fig.update_layout(
         title=title,
         xaxis_title="Date",
-        yaxis_title=y_axis_title,
+        y_axis_title=y_axis_title,
         template="plotly_white",
         height=300,
         margin=dict(l=50, r=50, t=80, b=50)
@@ -235,10 +253,17 @@ def suggest_cbs_structure(part_data: pd.DataFrame) -> Dict[str, float]:
     prices = []
     for col in price_columns:
         price = part_data[col].iloc[0]
-        if pd.notna(price) and price > 0:
+        if pd.notna(price) and price > 0 and not pd.isinf(price):
             prices.append(float(price))
     
-    avg_price = sum(prices) / len(prices) if prices else 100  # Default if no price data
+    # Safe average calculation with fallback
+    if prices:
+        avg_price = sum(prices) / len(prices)
+        # Check for NaN or Infinity
+        if pd.isna(avg_price) or pd.isinf(avg_price):
+            avg_price = 100.0
+    else:
+        avg_price = 100.0  # Default if no price data
     
     # Suggested breakdown (typical percentages for plastic parts)
     suggested_cbs = {
@@ -250,6 +275,11 @@ def suggest_cbs_structure(part_data: pd.DataFrame) -> Dict[str, float]:
         'packaginglogistics': avg_price * 0.07,  # 7% packaging & logistics
         'profit': avg_price * 0.05        # 5% profit
     }
+    
+    # Ensure all values are valid floats
+    for key, value in suggested_cbs.items():
+        if pd.isna(value) or pd.isinf(value):
+            suggested_cbs[key] = 0.0
     
     return suggested_cbs
 

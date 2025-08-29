@@ -69,10 +69,34 @@ class ChatResponse(BaseModel):
     message: str
 
 def safe_float(val):
+    """Safely convert value to float, handling None, NaN, and Infinity"""
     try:
-        return float(val)
+        if val is None:
+            return 0.0
+        float_val = float(val)
+        # Check for NaN or Infinity
+        if pd.isna(float_val) or pd.isinf(float_val):
+            return 0.0
+        return float_val
     except Exception:
         return 0.0
+
+def clean_for_json(obj):
+    """Recursively clean data structure to ensure JSON serialization compatibility"""
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_for_json(item) for item in obj]
+    elif isinstance(obj, float):
+        # Handle NaN and Infinity
+        if pd.isna(obj) or pd.isinf(obj):
+            return 0.0
+        return obj
+    elif isinstance(obj, (int, str, bool)) or obj is None:
+        return obj
+    else:
+        # Convert any other types to string to ensure JSON compatibility
+        return str(obj)
 
 @app.get("/")
 async def root():
@@ -297,14 +321,22 @@ async def chat_endpoint(request: ChatRequest):
         # Ensure all charts are dicts (not lists)
         def ensure_dict(x):
             return x if isinstance(x, dict) else {}
+        
+        # Clean all response data for JSON serialization
+        cleaned_chart1 = clean_for_json(ensure_dict(convert_ndarrays_to_lists(chart1)))
+        cleaned_chart2 = clean_for_json(ensure_dict(convert_ndarrays_to_lists(chart2)))
+        cleaned_chart3 = clean_for_json(ensure_dict(convert_ndarrays_to_lists(chart3)))
+        cleaned_chart4 = clean_for_json(ensure_dict(convert_ndarrays_to_lists(chart4)))
+        cleaned_chart5 = clean_for_json(ensure_dict(convert_ndarrays_to_lists(chart5)))
+        
         response = ChatResponse(
             part_number=part_number,
-            chart1=ensure_dict(convert_ndarrays_to_lists(chart1)),
-            chart2=ensure_dict(convert_ndarrays_to_lists(chart2)),
+            chart1=cleaned_chart1,
+            chart2=cleaned_chart2,
             market_indices=market_indices_clean,
-            chart3=ensure_dict(convert_ndarrays_to_lists(chart3)),
-            chart4=ensure_dict(convert_ndarrays_to_lists(chart4)),
-            chart5=ensure_dict(convert_ndarrays_to_lists(chart5)),
+            chart3=cleaned_chart3,
+            chart4=cleaned_chart4,
+            chart5=cleaned_chart5,
             analysis=analysis,
             success=True,
             message=f"Analysis completed successfully for part {part_number}"
