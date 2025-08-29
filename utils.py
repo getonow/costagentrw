@@ -233,7 +233,7 @@ def create_market_trend_chart(trend_data: pd.DataFrame, title: str, y_axis_title
     fig.update_layout(
         title=title,
         xaxis_title="Date",
-        y_axis_title=y_axis_title,
+        yaxis_title=y_axis_title,
         template="plotly_white",
         height=300,
         margin=dict(l=50, r=50, t=80, b=50)
