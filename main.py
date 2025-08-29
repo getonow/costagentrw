@@ -171,17 +171,32 @@ async def chat_endpoint(request: ChatRequest):
         # Step 5: Get current market indices
         material = part_data['material'].iloc[0] if 'material' in part_data.columns else "Unknown"
         # For C3 index, use the special mapping
-        index_material_c3 = map_material_to_index(material, for_c3=True) or "Unknown"
-        index_material = map_material_to_index(material) or "Unknown"
+        index_material_c3 = map_material_to_index(material, for_c3=True)
+        index_material = map_material_to_index(material)
         current_month = get_current_month_format()
         
-        # Raw material index (C3 index)
-        raw_material_data = get_baseline_index(
-            index="C3",
-            material=index_material_c3,
-            month=current_month
-        )
-        raw_material_value = float(raw_material_data[0]['monthlyavgeuro']) if raw_material_data else None
+        logger.info(f"Material: {material}, C3 Index Material: {index_material_c3}, Regular Index Material: {index_material}")
+        logger.info(f"Current month: {current_month}")
+        
+        # Raw material index (C3 index) - only query if we have a valid material mapping
+        raw_material_value = None
+        if index_material_c3:
+            raw_material_data = get_baseline_index(
+                index="C3",
+                material=index_material_c3,
+                month=current_month
+            )
+            logger.info(f"Raw material data for C3 index: {raw_material_data}")
+            # Safe extraction with proper null checks
+            if raw_material_data and len(raw_material_data) > 0:
+                try:
+                    monthly_avg = raw_material_data[0].get('monthlyavgeuro')
+                    if monthly_avg is not None:
+                        raw_material_value = float(monthly_avg)
+                except (ValueError, TypeError, KeyError):
+                    raw_material_value = None
+        else:
+            logger.warning(f"No valid C3 index material mapping found for material: {material}")
         
         # Electricity index
         electricity_data = get_baseline_index(
@@ -189,7 +204,16 @@ async def chat_endpoint(request: ChatRequest):
             material=None,
             month=current_month
         )
-        electricity_value = float(electricity_data[0]['monthlyavgeuro']) if electricity_data else None
+        logger.info(f"Electricity data: {electricity_data}")
+        # Safe extraction with proper null checks
+        electricity_value = None
+        if electricity_data and len(electricity_data) > 0:
+            try:
+                monthly_avg = electricity_data[0].get('monthlyavgeuro')
+                if monthly_avg is not None:
+                    electricity_value = float(monthly_avg)
+            except (ValueError, TypeError, KeyError):
+                electricity_value = None
         
         # Gas index
         gas_data = get_baseline_index(
@@ -197,7 +221,16 @@ async def chat_endpoint(request: ChatRequest):
             material=None,
             month=current_month
         )
-        gas_value = float(gas_data[0]['monthlyavgeuro']) if gas_data else None
+        logger.info(f"Gas data: {gas_data}")
+        # Safe extraction with proper null checks
+        gas_value = None
+        if gas_data and len(gas_data) > 0:
+            try:
+                monthly_avg = gas_data[0].get('monthlyavgeuro')
+                if monthly_avg is not None:
+                    gas_value = float(monthly_avg)
+            except (ValueError, TypeError, KeyError):
+                gas_value = None
         
         market_indices = {
             "raw_material": raw_material_value,
@@ -205,15 +238,20 @@ async def chat_endpoint(request: ChatRequest):
             "gas": gas_value
         }
         
+        logger.info(f"Final market indices values: {market_indices}")
+        
         # Step 6: Get market trends and generate charts (Charts 3, 4, 5)
         last_12_months = get_last_12_months()
-        # Raw material trend (C3 index)
-        raw_material_trend = get_baseline_index_trend(
-            index="C3",
-            material=index_material_c3,
-            months=last_12_months
-        )
-        raw_material_trend_df = pd.DataFrame(raw_material_trend) if raw_material_trend else pd.DataFrame()
+        # Raw material trend (C3 index) - only query if we have a valid material mapping
+        raw_material_trend_df = pd.DataFrame()
+        if index_material_c3:
+            raw_material_trend = get_baseline_index_trend(
+                index="C3",
+                material=index_material_c3,
+                months=last_12_months
+            )
+            raw_material_trend_df = pd.DataFrame(raw_material_trend) if raw_material_trend else pd.DataFrame()
+        
         chart3 = create_market_trend_chart(
             raw_material_trend_df,
             "Raw Material Index Trend",
@@ -311,21 +349,48 @@ async def get_market_indices():
             material=None,
             month=current_month
         )
-        raw_material_value = float(raw_material_data[0]['monthlyavgeuro']) if raw_material_data else None
+        # Safe extraction with proper null checks
+        raw_material_value = None
+        if raw_material_data and len(raw_material_data) > 0:
+            try:
+                monthly_avg = raw_material_data[0].get('monthlyavgeuro')
+                if monthly_avg is not None:
+                    raw_material_value = float(monthly_avg)
+            except (ValueError, TypeError, KeyError):
+                raw_material_value = None
+        
         # Electricity index
         electricity_data = get_baseline_index(
             index="European Wholesale Electricity Prices",
             material=None,
             month=current_month
         )
-        electricity_value = float(electricity_data[0]['monthlyavgeuro']) if electricity_data else None
+        # Safe extraction with proper null checks
+        electricity_value = None
+        if electricity_data and len(electricity_data) > 0:
+            try:
+                monthly_avg = electricity_data[0].get('monthlyavgeuro')
+                if monthly_avg is not None:
+                    electricity_value = float(monthly_avg)
+            except (ValueError, TypeError, KeyError):
+                electricity_value = None
+        
         # Gas index
         gas_data = get_baseline_index(
             index="Natural Gas EU Dutch TTF (EUR/MWh)",
             material=None,
             month=current_month
         )
-        gas_value = float(gas_data[0]['monthlyavgeuro']) if gas_data else None
+        # Safe extraction with proper null checks
+        gas_value = None
+        if gas_data and len(gas_data) > 0:
+            try:
+                monthly_avg = gas_data[0].get('monthlyavgeuro')
+                if monthly_avg is not None:
+                    gas_value = float(monthly_avg)
+            except (ValueError, TypeError, KeyError):
+                gas_value = None
+        
         indices = {
             "raw_material": raw_material_value,
             "electricity": electricity_value,
