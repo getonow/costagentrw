@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import logging
+import math
 
 from database import (
     get_part_from_master_file,
@@ -75,7 +76,7 @@ def safe_float(val):
             return 0.0
         float_val = float(val)
         # Check for NaN or Infinity
-        if pd.isna(float_val) or pd.isinf(float_val):
+        if pd.isna(float_val) or math.isinf(float_val):
             return 0.0
         return float_val
     except Exception:
@@ -89,7 +90,7 @@ def clean_for_json(obj):
         return [clean_for_json(item) for item in obj]
     elif isinstance(obj, float):
         # Handle NaN and Infinity
-        if pd.isna(obj) or pd.isinf(obj):
+        if pd.isna(obj) or math.isinf(obj):
             return 0.0
         return obj
     elif isinstance(obj, (int, str, bool)) or obj is None:
@@ -307,13 +308,17 @@ async def chat_endpoint(request: ChatRequest):
         )
         
         # Step 7: Generate AI analysis and insights
-        analysis = ai_agent.generate_analysis_and_insights(
-            part_data, cbs_data, market_indices_clean, {
-                'raw_material': raw_material_trend_df,
-                'electricity': electricity_trend_df,
-                'gas': gas_trend_df
-            }, part_number, request.message
-        )
+        try:
+            analysis = ai_agent.generate_analysis_and_insights(
+                part_data, cbs_data, market_indices_clean, {
+                    'raw_material': raw_material_trend_df,
+                    'electricity': electricity_trend_df,
+                    'gas': gas_trend_df
+                }, part_number, request.message
+            )
+        except Exception as e:
+            logger.warning(f"AI analysis failed, using fallback: {e}")
+            analysis = f"Analysis completed for part {part_number}. AI insights temporarily unavailable."
         
         # Prepare response
         # Ensure market_indices has only float values

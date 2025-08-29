@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import re
 import numpy as np
+import math
 
 def extract_part_number(message: str) -> Optional[str]:
     """Extract part number from user message"""
@@ -102,7 +103,7 @@ def create_price_trend_chart(part_data: pd.DataFrame, part_number: str) -> Dict[
                 try:
                     date = datetime(int(year), month_names[month], 1)
                     price = part_data[col].iloc[0]
-                    if pd.notna(price) and price > 0 and not pd.isinf(price):
+                    if pd.notna(price) and price > 0 and not math.isinf(price):
                         clean_price = float(price)
                         prices.append(clean_price)
                         dates.append(date)
@@ -148,7 +149,7 @@ def create_cbs_pie_chart(cbs_data: pd.DataFrame, part_number: str, is_suggested:
     for component in cost_components:
         if component in cbs_data.columns:
             value = cbs_data[component].iloc[0]
-            if pd.notna(value) and value > 0 and not pd.isinf(value):
+            if pd.notna(value) and value > 0 and not math.isinf(value):
                 clean_value = float(value)
                 labels.append(component.replace('packaginglogistics', 'Packaging & Logistics').title())
                 values.append(clean_value)
@@ -206,7 +207,7 @@ def create_market_trend_chart(trend_data: pd.DataFrame, title: str, y_axis_title
     # Safely extract and clean values
     for value in trend_data['monthlyavgeuro']:
         try:
-            if pd.notna(value) and not pd.isinf(value):
+            if pd.notna(value) and not math.isinf(value):
                 clean_value = float(value)
                 values.append(clean_value)
             else:
@@ -253,14 +254,14 @@ def suggest_cbs_structure(part_data: pd.DataFrame) -> Dict[str, float]:
     prices = []
     for col in price_columns:
         price = part_data[col].iloc[0]
-        if pd.notna(price) and price > 0 and not pd.isinf(price):
+        if pd.notna(price) and price > 0 and not math.isinf(price):
             prices.append(float(price))
     
     # Safe average calculation with fallback
     if prices:
         avg_price = sum(prices) / len(prices)
         # Check for NaN or Infinity
-        if pd.isna(avg_price) or pd.isinf(avg_price):
+        if pd.isna(avg_price) or math.isinf(avg_price):
             avg_price = 100.0
     else:
         avg_price = 100.0  # Default if no price data
@@ -278,7 +279,7 @@ def suggest_cbs_structure(part_data: pd.DataFrame) -> Dict[str, float]:
     
     # Ensure all values are valid floats
     for key, value in suggested_cbs.items():
-        if pd.isna(value) or pd.isinf(value):
+        if pd.isna(value) or math.isinf(value):
             suggested_cbs[key] = 0.0
     
     return suggested_cbs
