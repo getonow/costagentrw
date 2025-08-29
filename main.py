@@ -176,7 +176,9 @@ async def chat_endpoint(request: ChatRequest):
         part_data = pd.DataFrame([part_data_dict])
         
         # Step 3: Generate price trend chart (Chart 1)
+        logger.info("Generating price trend chart...")
         chart1 = create_price_trend_chart(part_data, part_number)
+        logger.info(f"Price trend chart result: {type(chart1)} - {'error' in chart1 if isinstance(chart1, dict) else 'success'}")
         
         # Step 4: Get CBS information and generate pie chart (Chart 2)
         cbs_data_dict = get_cbs_for_part(part_number)
@@ -191,7 +193,9 @@ async def chat_endpoint(request: ChatRequest):
         else:
             cbs_data = pd.DataFrame([cbs_data_dict])
         
+        logger.info("Generating CBS pie chart...")
         chart2 = create_cbs_pie_chart(cbs_data, part_number, is_suggested_cbs)
+        logger.info(f"CBS pie chart result: {type(chart2)} - {'error' in chart2 if isinstance(chart2, dict) else 'success'}")
         
         # Step 5: Get current market indices
         material = part_data['material'].iloc[0] if 'material' in part_data.columns else "Unknown"

@@ -79,167 +79,210 @@ def map_material_to_index(material: str, for_c3: bool = False) -> Optional[str]:
 
 def create_price_trend_chart(part_data: pd.DataFrame, part_number: str) -> Dict[str, Any]:
     """Create price trend chart for the part"""
-    # Extract price columns and convert to time series
-    price_columns = [col for col in part_data.columns if col.startswith('price') and 'mkt' not in col]
-    
-    # Create time series data
-    prices = []
-    dates = []
-    
-    for col in price_columns:
-        # Extract month and year from column name
-        month_year = col.replace('price', '')
-        if len(month_year) >= 7:  # e.g., 'jan2023'
-            month = month_year[:3]
-            year = month_year[3:]
-            
-            # Convert to datetime
-            month_names = {
-                'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-                'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-            }
-            
-            if month in month_names:
-                try:
-                    date = datetime(int(year), month_names[month], 1)
-                    price = part_data[col].iloc[0]
-                    if pd.notna(price) and price > 0 and not math.isinf(price):
-                        clean_price = float(price)
-                        prices.append(clean_price)
-                        dates.append(date)
-                except (ValueError, TypeError):
-                    continue
-    
-    if not prices:
-        return {"error": "No valid price data found"}
-    
-    # Create Plotly figure
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=dates,
-        y=prices,
-        mode='lines+markers',
-        name='Part Price',
-        line=dict(color='#1f77b4', width=2),
-        marker=dict(size=6)
-    ))
-    
-    fig.update_layout(
-        title=f"Price Trend - {part_number}",
-        xaxis_title="Date",
-        yaxis_title="Price (EUR)",
-        template="plotly_white",
-        height=400,
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
-    
-    return fig.to_dict()
+    try:
+        # Extract price columns and convert to time series
+        price_columns = [col for col in part_data.columns if col.startswith('price') and 'mkt' not in col]
+        
+        # Create time series data
+        prices = []
+        dates = []
+        
+        for col in price_columns:
+            # Extract month and year from column name
+            month_year = col.replace('price', '')
+            if len(month_year) >= 7:  # e.g., 'jan2023'
+                month = month_year[:3]
+                year = month_year[3:]
+                
+                # Convert to datetime
+                month_names = {
+                    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+                    'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+                }
+                
+                if month in month_names:
+                    try:
+                        date = datetime(int(year), month_names[month], 1)
+                        price = part_data[col].iloc[0]
+                        if pd.notna(price) and price > 0 and not math.isinf(price):
+                            clean_price = float(price)
+                            prices.append(clean_price)
+                            dates.append(date)
+                    except (ValueError, TypeError):
+                        continue
+        
+        if not prices:
+            return {"error": "No valid price data found"}
+        
+        # Validate that all values are finite numbers
+        if not all(math.isfinite(p) for p in prices):
+            return {"error": "Invalid price data found"}
+        
+        # Create Plotly figure
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=prices,
+            mode='lines+markers',
+            name='Part Price',
+            line=dict(color='#1f77b4', width=2),
+            marker=dict(size=6)
+        ))
+        
+        fig.update_layout(
+            title=f"Price Trend - {part_number}",
+            xaxis_title="Date",
+            yaxis_title="Price (EUR)",
+            template="plotly_white",
+            height=400,
+            margin=dict(l=50, r=50, t=80, b=50)
+        )
+        
+        # Convert to dict and validate
+        chart_dict = fig.to_dict()
+        if not isinstance(chart_dict, dict):
+            return {"error": "Failed to generate price trend chart"}
+        
+        return chart_dict
+        
+    except Exception as e:
+        return {"error": f"Error creating price trend chart: {str(e)}"}
 
 def create_cbs_pie_chart(cbs_data: pd.DataFrame, part_number: str, is_suggested: bool = False) -> Dict[str, Any]:
     """Create cost breakdown structure pie chart"""
-    # Extract cost components
-    cost_components = ['rawmaterial', 'machine', 'labor', 'overhead', 'energy', 'packaginglogistics', 'profit']
-    
-    labels = []
-    values = []
-    percentages = []
-    
-    total = 0
-    for component in cost_components:
-        if component in cbs_data.columns:
-            value = cbs_data[component].iloc[0]
-            if pd.notna(value) and value > 0 and not math.isinf(value):
-                clean_value = float(value)
-                labels.append(component.replace('packaginglogistics', 'Packaging & Logistics').title())
-                values.append(clean_value)
-                total += clean_value
-    
-    # Calculate percentages
-    if total > 0:
-        percentages = [(v/total)*100 for v in values]
-    
-    # Create Plotly figure
-    fig = go.Figure(data=[go.Pie(
-        labels=labels,
-        values=values,
-        hole=0.3,
-        textinfo='label+percent+value',
-        textposition='inside',
-        insidetextorientation='radial'
-    )])
-    
-    title = f"CBS-Suggested for {part_number}" if is_suggested else f"CBS {part_number}"
-    
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
-        height=400,
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
-    
-    return fig.to_dict()
+    try:
+        # Extract cost components
+        cost_components = ['rawmaterial', 'machine', 'labor', 'overhead', 'energy', 'packaginglogistics', 'profit']
+        
+        labels = []
+        values = []
+        percentages = []
+        
+        total = 0
+        for component in cost_components:
+            if component in cbs_data.columns:
+                value = cbs_data[component].iloc[0]
+                if pd.notna(value) and value > 0 and not math.isinf(value):
+                    clean_value = float(value)
+                    labels.append(component.replace('packaginglogistics', 'Packaging & Logistics').title())
+                    values.append(clean_value)
+                    total += clean_value
+        
+        # Ensure we have valid data
+        if not values or total <= 0:
+            return {"error": f"No valid CBS data for {part_number}"}
+        
+        # Validate that all values are finite numbers
+        if not all(math.isfinite(v) for v in values):
+            return {"error": f"Invalid CBS data for {part_number}"}
+        
+        # Calculate percentages
+        if total > 0:
+            percentages = [(v/total)*100 for v in values]
+        
+        # Create Plotly figure
+        fig = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.3,
+            textinfo='label+percent+value',
+            textposition='inside',
+            insidetextorientation='radial'
+        )])
+        
+        title = f"CBS-Suggested for {part_number}" if is_suggested else f"CBS {part_number}"
+        
+        fig.update_layout(
+            title=title,
+            template="plotly_white",
+            height=400,
+            margin=dict(l=50, r=50, t=80, b=50)
+        )
+        
+        # Convert to dict and validate
+        chart_dict = fig.to_dict()
+        if not isinstance(chart_dict, dict):
+            return {"error": f"Failed to generate CBS chart for {part_number}"}
+        
+        return chart_dict
+        
+    except Exception as e:
+        return {"error": f"Error creating CBS chart for {part_number}: {str(e)}"}
 
 def create_market_trend_chart(trend_data: pd.DataFrame, title: str, y_axis_title: str) -> Dict[str, Any]:
     """Create market trend chart"""
-    if trend_data.empty:
-        return {"error": f"No data available for {title}"}
-    
-    # Convert month strings to datetime for proper ordering
-    dates = []
-    values = []
-    for month_str in trend_data['month']:
-        try:
-            # Parse month format like 'jul-25'
-            month, year = month_str.split('-')
-            month_names = {
-                'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
-                'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
-            }
-            if month in month_names:
-                date = datetime(2000 + int(year), month_names[month], 1)
-                dates.append(date)
-            else:
+    try:
+        if trend_data.empty:
+            return {"error": f"No data available for {title}"}
+        
+        # Convert month strings to datetime for proper ordering
+        dates = []
+        values = []
+        for month_str in trend_data['month']:
+            try:
+                # Parse month format like 'jul-25'
+                month, year = month_str.split('-')
+                month_names = {
+                    'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
+                    'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
+                }
+                if month in month_names:
+                    date = datetime(2000 + int(year), month_names[month], 1)
+                    dates.append(date)
+                else:
+                    dates.append(datetime.now())
+            except:
                 dates.append(datetime.now())
-        except:
-            dates.append(datetime.now())
-    
-    # Safely extract and clean values
-    for value in trend_data['monthlyavgeuro']:
-        try:
-            if pd.notna(value) and not math.isinf(value):
-                clean_value = float(value)
-                values.append(clean_value)
-            else:
-                values.append(0.0)  # Replace NaN/Inf with 0
-        except (ValueError, TypeError):
-            values.append(0.0)
-    
-    # Ensure we have valid data
-    if not values or len(values) != len(dates):
-        return {"error": f"Invalid data for {title}"}
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=dates,
-        y=values,
-        mode='lines+markers',
-        name=title,
-        line=dict(color='#ff7f0e', width=2),
-        marker=dict(size=6)
-    ))
-    
-    fig.update_layout(
-        title=title,
-        xaxis_title="Date",
-        yaxis_title=y_axis_title,
-        template="plotly_white",
-        height=300,
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
-    
-    return fig.to_dict()
+        
+        # Safely extract and clean values
+        for value in trend_data['monthlyavgeuro']:
+            try:
+                if pd.notna(value) and not math.isinf(value):
+                    clean_value = float(value)
+                    values.append(clean_value)
+                else:
+                    values.append(0.0)  # Replace NaN/Inf with 0
+            except (ValueError, TypeError):
+                values.append(0.0)
+        
+        # Ensure we have valid data
+        if not values or len(values) != len(dates):
+            return {"error": f"Invalid data for {title}"}
+        
+        # Validate that all values are finite numbers
+        if not all(math.isfinite(v) for v in values):
+            return {"error": f"Invalid numeric data for {title}"}
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=values,
+            mode='lines+markers',
+            name=title,
+            line=dict(color='#ff7f0e', width=2),
+            marker=dict(size=6)
+        ))
+        
+        fig.update_layout(
+            title=title,
+            xaxis_title="Date",
+            yaxis_title=y_axis_title,
+            template="plotly_white",
+            height=300,
+            margin=dict(l=50, r=50, t=80, b=50)
+        )
+        
+        # Convert to dict and validate
+        chart_dict = fig.to_dict()
+        if not isinstance(chart_dict, dict):
+            return {"error": f"Failed to generate chart for {title}"}
+        
+        return chart_dict
+        
+    except Exception as e:
+        return {"error": f"Error creating chart for {title}: {str(e)}"}
 
 def suggest_cbs_structure(part_data: pd.DataFrame) -> Dict[str, float]:
     """Suggest CBS structure based on part information"""
